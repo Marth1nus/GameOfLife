@@ -1,13 +1,5 @@
 #pragma once
 
-#pragma warning(push, 0)
-#pragma warning(disable : 4996)
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
-
-#pragma warning(pop)
-
 #include "game.hpp"
 #include <array>
 using namespace std::literals;
@@ -72,15 +64,6 @@ auto centered_quad_verts(float x, float y, float w, float h) {
 		x - w / 2, /**/ y - h / 2,
 		x - w / 2, /**/ y + h / 2,
 	};
-}
-auto save_texture(gl::GLuint tid, char const* path) -> void {
-	using namespace gl;
-	GLint width, height;
-	glGetTextureLevelParameteriv(tid, 0, GL_TEXTURE_WIDTH, &width);
-	glGetTextureLevelParameteriv(tid, 0, GL_TEXTURE_HEIGHT, &height);
-	std::vector<uint8_t> pixels(width * height * 3, 0);
-	glGetTextureImage(tid, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels.size(), pixels.data());
-	stbi_write_bmp(path, width, height, 3, pixels.data());
 }
 
 game_of_life game;
@@ -182,8 +165,6 @@ void game_of_life::set_uniforms(bool display_only) {
 }
 void game_of_life::update() {
 	using namespace gl;
-
-	rebuild_shaders();
 
 	std::swap(curr_tex, prev_tex);
 	std::swap(curr_fbo, prev_fbo);

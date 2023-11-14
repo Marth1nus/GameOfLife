@@ -18,41 +18,38 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="framework.h">
+    <ClInclude Include="src\framework.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="targetver.h">
+    <ClInclude Include="src\targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Resource.h">
+    <ClInclude Include="src\Resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="game_of_life.h">
+    <ClInclude Include="src\game_of_life.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="gl.hpp">
+    <ClInclude Include="src\gl.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="game.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="stb_image_write.h">
+    <ClInclude Include="src\game.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="game_of_life.cpp">
+    <ClCompile Include="src\game_of_life.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="gl.cpp">
+    <ClCompile Include="src\gl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="game.cpp">
+    <ClCompile Include="src\game.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="game_of_life.rc">
+    <ResourceCompile Include="src\game_of_life.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>

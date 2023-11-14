@@ -33,20 +33,20 @@ uint alive() {
 		: neighbor_count == 3 ) ? 1 : 0;
 }
 
-void display() {
+vec4 display() {
 	vec2 tex = gl_FragCoord.xy / window_size;
 	tex.y = 1.0 - tex.y;
-	frag_color = texture(source, tex);
+	return texture(source, tex);
 }
 
 void main() {
 	if (display_only == 1) {
-		display();
+		frag_color = display();
 		return;
 	}
 	uint a = alive();
 	if (mouse_buttons.x == 1
- 	&&  length(mouse_pos / window_size * grid_size - gl_FragCoord.xy) < 2)
+ 	&&  length(mouse_pos / window_size * grid_size - gl_FragCoord.xy) < 1)
 		a = 1;
 	frag_color = vec4(a,a,a,1);
 }
