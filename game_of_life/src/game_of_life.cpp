@@ -20,11 +20,11 @@ struct resources {
         window_class{};
 };
 
-HWND hwnd{};
-INT_PTR timer{};
-float target_fps = 30;
-resources win_resources{};
-extern game_of_life game;
+static HWND hwnd{};
+static INT_PTR timer{};
+static float target_fps = 30;
+static resources win_resources{};
+static game_of_life game;
 
 static LRESULT APIENTRY window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) noexcept;
 
@@ -81,6 +81,11 @@ static auto create_console() -> HWND {
     (void)freopen_s(discard_result, "CONOUT$", "w", stderr);
     puts("Created Console");
     return GetConsoleWindow();
+}
+static auto reset_game() {
+    game = { game.hwnd, game.width, game.height };
+    game.build();
+    puts("Reset");
 }
 
 using hwnd_deleter = decltype([](HWND hwnd) { return DestroyWindow(hwnd); });
@@ -203,14 +208,13 @@ static bool wm_command(WORD cmd) {
         printf("%s console\n", shown ? "Show" : "Hide");
     } break;
     case IDM_DEBUG_RESET: {
-        game = game_of_life::build(hwnd);
-        puts("Reset");
+        reset_game();
     } break;
     case IDM_DEBUG_REBUILDSHADERS: {
-        game.rebuild_shaders();
+        game.build_shaders();
     } break;
     case IDM_DEBUG_REBUILDTEXTURES: {
-        game.rebuild_textures();
+        game.build_textures();
     } break;
     case IDM_EXIT: {
         DestroyWindow(hwnd);
@@ -246,7 +250,8 @@ static auto APIENTRY window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM 
         gl::glEnable(GL_DEBUG_OUTPUT);
         gl::glDebugMessageCallback(opengl_debug, nullptr);
 
-        game = game_of_life::build(hwnd);
+        game = { hwnd };
+        reset_game();
 
         timer = SetTimer(hwnd, 0, UINT(1'000.0f / target_fps), timer_proc);
     } break;
@@ -263,6 +268,9 @@ static auto APIENTRY window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM 
         if (!wm_command(LOWORD(wparam)))
             return DefWindowProc(hwnd, message, wparam, lparam);
     } break;
+    case WM_ERASEBKGND: {
+        return TRUE;
+    } break;
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
@@ -273,11 +281,7 @@ static auto APIENTRY window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM 
     case WM_SIZE: {
         auto const w = LOWORD(lparam);
         auto const h = HIWORD(lparam);
-        glViewport(0, 0, w, h);
-        InvalidateRect(hwnd, nullptr, true);
-    } break;
-    case WM_ERASEBKGND: {
-        return TRUE;
+        gl::glViewport(0, 0, w, h);
     } break;
     default:
         return DefWindowProc(hwnd, message, wparam, lparam);

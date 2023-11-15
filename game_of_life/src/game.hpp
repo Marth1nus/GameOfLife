@@ -22,10 +22,10 @@ struct timer {
 
 struct game_of_life {
 public: /* Function View */
-	[[nodiscard]] static game_of_life build(HWND hwnd);
 
-	void rebuild_shaders();
-	void rebuild_textures();
+	void build();
+	void build_shaders();
+	void build_textures();
 	void locate_uniforms();
 	void set_uniforms(bool display_only);
 	void update();
@@ -33,8 +33,12 @@ public: /* Function View */
 
 public: /* Data View */
 	HWND hwnd{};
+	GLuint 
+		width = 256, 
+		height = width;
 
-	GLuint width{}, height{}, tik{};
+public: /* State */
+	GLuint tik{};
 	POINT mouse_pos{};
 	timer time{};
 

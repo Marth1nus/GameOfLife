@@ -66,34 +66,27 @@ auto centered_quad_verts(float x, float y, float w, float h) {
 	};
 }
 
-game_of_life game;
-game_of_life game_of_life::build(HWND hwnd) {
+void game_of_life::build() {
 	using namespace gl;
-	game_of_life game{
-		.hwnd = hwnd,
-		.width = 64,
-		.height = 64,
-		.vbo = raii::make1from(glCreateBuffers),
-		.vao = raii::make1from(glCreateVertexArrays),
-	};
+
+	vbo = raii::make1from(glCreateBuffers);
 	auto const verts = centered_quad_verts(0, 0, 2, 2);
-	glNamedBufferData(game.vbo, sizeof(verts), data(verts), GL_STATIC_DRAW);
+	glNamedBufferData(vbo, sizeof(verts), data(verts), GL_STATIC_DRAW);
 
-	glVertexArrayAttribFormat(game.vao, 0, 2, GL_FLOAT, GL_FALSE, 0);
-	glVertexArrayVertexBuffer(game.vao, 0, game.vbo, 0, sizeof(float) * 2);
-	glVertexArrayAttribBinding(game.vao, 0, 0);
-	glEnableVertexArrayAttrib(game.vao, 0);
+	vao = raii::make1from(glCreateVertexArrays);
+	glVertexArrayAttribFormat(vao, 0, 2, GL_FLOAT, GL_FALSE, 0);
+	glVertexArrayVertexBuffer(vao, 0, vbo, 0, sizeof(float) * 2);
+	glVertexArrayAttribBinding(vao, 0, 0);
+	glEnableVertexArrayAttrib(vao, 0);
 
-	game.rebuild_shaders();
-	game.rebuild_textures();
-
-	return game;
+	build_textures();
+	build_shaders();
 }
-void game_of_life::rebuild_shaders() {
+void game_of_life::build_shaders() {
 	pid = make_program(read_all("gol.frag.glsl"));
 	locate_uniforms();
 }
-void game_of_life::rebuild_textures() {
+void game_of_life::build_textures() {
 	using namespace gl;
 
 	tid = raii::make1from(glCreateTextures, GL_TEXTURE_2D);
@@ -103,7 +96,6 @@ void game_of_life::rebuild_textures() {
 	glTextureParameteri(tid, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTextureParameteri(tid, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-	srand(0xabcdef);
 	std::vector<uint8_t> pixels(width * height);
 	std::ranges::generate(pixels, rand);
 	glTextureSubImage2D(tid, 0, 0, 0, width, height, GL_RED, GL_UNSIGNED_BYTE, pixels.data());
@@ -169,12 +161,11 @@ void game_of_life::update() {
 void game_of_life::draw() {
 	using namespace gl;
 
-	glUseProgram(pid);
 	set_uniforms(true);
 
+	glUseProgram(pid);
 	glBindVertexArray(vao);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
 	glClear(GL_COLOR_BUFFER_BIT);
 	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
