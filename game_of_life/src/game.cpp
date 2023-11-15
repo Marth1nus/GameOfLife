@@ -96,31 +96,23 @@ void game_of_life::rebuild_shaders() {
 void game_of_life::rebuild_textures() {
 	using namespace gl;
 
-	curr_tex = raii::make1from(glCreateTextures, GL_TEXTURE_2D);
-	prev_tex = raii::make1from(glCreateTextures, GL_TEXTURE_2D);
-	GLuint const tids[]{ curr_tex, prev_tex };
-	for (auto const tid : tids) {
-		glTextureStorage2D(tid, 1, GL_R8, width, height);
-		glTextureParameteri(tid, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-		glTextureParameteri(tid, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-		glTextureParameteri(tid, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTextureParameteri(tid, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	tid = raii::make1from(glCreateTextures, GL_TEXTURE_2D);
+	glTextureStorage2D(tid, 1, GL_R8, width, height);
+	glTextureParameteri(tid, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+	glTextureParameteri(tid, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+	glTextureParameteri(tid, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTextureParameteri(tid, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-		srand(0xabcdef);
-		std::vector<uint8_t> pixels(width * height);
-		std::ranges::generate(pixels, rand);
-		glTextureSubImage2D(tid, 0, 0, 0, width, height, GL_RED, GL_UNSIGNED_BYTE, pixels.data());
-	}
+	srand(0xabcdef);
+	std::vector<uint8_t> pixels(width * height);
+	std::ranges::generate(pixels, rand);
+	glTextureSubImage2D(tid, 0, 0, 0, width, height, GL_RED, GL_UNSIGNED_BYTE, pixels.data());
 
-	curr_fbo = raii::make1from(glCreateFramebuffers);
-	prev_fbo = raii::make1from(glCreateFramebuffers);
-	GLuint const fbos[]{ curr_fbo, prev_fbo };
-	for (auto [tid, fbo] : std::views::zip(tids, fbos)) {
-		glNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, tid, 0);
-		if (GLenum status = glCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
-			status != GL_FRAMEBUFFER_COMPLETE)
-			throw std::runtime_error("framebuffer incomplete");
-	}
+	fbo = raii::make1from(glCreateFramebuffers);
+	glNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, tid, 0);
+	if (GLenum status = glCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
+		status != GL_FRAMEBUFFER_COMPLETE)
+		throw std::runtime_error("framebuffer incomplete");
 }
 void game_of_life::locate_uniforms() {
 	using gl::glGetUniformLocation;
@@ -136,7 +128,7 @@ void game_of_life::locate_uniforms() {
 void game_of_life::set_uniforms(bool display_only) {
 	using namespace gl;
 
-	GLuint const textures[]{ curr_tex, prev_tex };
+	GLuint const textures[]{ tid };
 	glBindTextures(0, std::size(textures), textures);
 
 	GetCursorPos(&mouse_pos);
@@ -166,16 +158,12 @@ void game_of_life::set_uniforms(bool display_only) {
 void game_of_life::update() {
 	using namespace gl;
 
-	std::swap(curr_tex, prev_tex);
-	std::swap(curr_fbo, prev_fbo);
 	tik++;
-
-	glUseProgram(pid);
 	set_uniforms(false);
 
+	glUseProgram(pid);
 	glBindVertexArray(vao);
-	glBindFramebuffer(GL_FRAMEBUFFER, curr_fbo);
-
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 void game_of_life::draw() {

@@ -38,8 +38,13 @@ public: /* Data View */
 	POINT mouse_pos{};
 	timer time{};
 
+public: /* Graphics */
+	gl::raii::buffer vbo{};
+	gl::raii::vertexarray vao{};
+	gl::raii::texture tid{};
+	gl::raii::framebuffer fbo{};
 	gl::raii::program pid{};
-	gl::GLint
+	gl::GLint /* Uniform Locations */
 		uniform_display_only{},
 		uniform_source{},
 		uniform_grid_size{},
@@ -48,15 +53,4 @@ public: /* Data View */
 		uniform_millis{},
 		uniform_mouse_buttons{},
 		uniform_mouse_pos{};
-	
-
-	gl::raii::buffer vbo{};
-	gl::raii::vertexarray vao{};
-
-	gl::raii::texture curr_tex{};
-	gl::raii::texture prev_tex{};
-
-	gl::raii::framebuffer curr_fbo{};
-	gl::raii::framebuffer prev_fbo{};
-
 };
