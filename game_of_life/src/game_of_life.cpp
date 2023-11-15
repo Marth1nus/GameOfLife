@@ -19,12 +19,9 @@ struct resources {
         window_title{},
         window_class{};
 };
-
-static HWND hwnd{};
-static INT_PTR timer{};
 static float target_fps = 30;
 static resources win_resources{};
-static game_of_life game;
+static game_of_life game{};
 
 static auto grab_resources(HINSTANCE hInstance) -> resources {
     resources res{.hInstance = hInstance};
@@ -70,6 +67,15 @@ static auto setup_pixel_format(HDC hdc) -> BOOL {
     int const pf = ChoosePixelFormat(hdc, &pfd);
     return SetPixelFormat(hdc, pf, &pfd);
 }
+static auto setup_opengl_context(HDC hdc) -> void {
+    HGLRC const hglrc = wglCreateContext(hdc);
+    wglMakeCurrent(hdc, hglrc);
+    gl::set_load_proc([](char const* name) {
+        PROC proc = wglGetProcAddress(name);
+        printf("Loaded at %p %s\n", proc, name);
+        return reinterpret_cast<gl::proc_t>(proc);
+    });
+}
 static auto create_console() -> HWND {
     if (!AllocConsole()) 
         return nullptr;
@@ -80,9 +86,20 @@ static auto create_console() -> HWND {
     puts("Created Console");
     return GetConsoleWindow();
 }
-static auto reset_game() {
-    game = { game.hwnd, game.width, game.height };
+static auto reset_game(HWND hwnd) -> void {
+    game = { hwnd, game.width, game.height };
     game.build();
+
+    constinit static UINT_PTR timer = 0;
+    timer = SetTimer(
+        hwnd,
+        timer,
+        UINT(1'000.0f / target_fps), 
+        [](HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) {
+            game.update();
+            InvalidateRect(hwnd, nullptr, false);
+        });
+
     puts("Reset");
 }
 
@@ -123,10 +140,10 @@ static auto CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
     return (INT_PTR)FALSE;
 }
 
-void opengl_debug(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam) {
+static auto APIENTRY opengl_debug(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam) noexcept -> void {
     using namespace std::literals;
     if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) return;
-    std::string_view const str_source   /**/ { 
+    std::string_view const str_source   /**/{ 
         [source] { switch (source) {
         case GL_DEBUG_SOURCE_API:             /**/ return "API"sv;
         case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   /**/ return "Window System"sv;
@@ -137,7 +154,7 @@ void opengl_debug(GLenum source, GLenum type, GLuint id, GLenum severity, GLsize
         default: return "???"sv;
         } }() 
     };
-    std::string_view const str_type     /**/ { 
+    std::string_view const str_type     /**/{ 
         [type] { switch (type) {
         case GL_DEBUG_TYPE_ERROR:               /**/ return "Error"sv;
         case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: /**/ return "Deprecated Behavior"sv;
@@ -151,7 +168,7 @@ void opengl_debug(GLenum source, GLenum type, GLuint id, GLenum severity, GLsize
         default: return "???"sv;
         } }() 
     };
-    std::string_view const str_severity /**/ { 
+    std::string_view const str_severity /**/{ 
         [severity] { switch (severity) {
         case GL_DEBUG_SEVERITY_HIGH:         /**/ return "High"sv;
         case GL_DEBUG_SEVERITY_MEDIUM:       /**/ return "Medium"sv;
@@ -160,10 +177,10 @@ void opengl_debug(GLenum source, GLenum type, GLuint id, GLenum severity, GLsize
         default: return "???"sv;
         } }() 
     };
-    std::string_view const str_message  /**/ { 
-        std::string_view{ message, static_cast<size_t>(length) } 
+    std::string_view const str_message  /**/{ 
+        message, static_cast<size_t>(length) 
     };
-    std::string      const error        /**/ { std::format("|"
+    std::string      const error        /**/{ std::format("|"
         "| GL Error : {:<8} |"
         "| Source   : {:<8} |"
         "| Type     : {:<8} |"
@@ -176,21 +193,11 @@ void opengl_debug(GLenum source, GLenum type, GLuint id, GLenum severity, GLsize
         str_severity,
         str_message
     ) };
-    /* Repeat handeling */ {
-        size_t const hash_message = std::hash<std::string_view>{}(error);
-        size_t static constinit hash_prev = 0, repeat = 0;
-        if (hash_prev == hash_message) {
-            std::cerr << "|| GL Error ^^^ x"<< repeat++ << '\r';
-            return;
-        }
-        hash_prev = hash_message;
-        repeat = 1;
-    }
-    std::cerr << error;
-    // DebugBreak();
+    static no_repeat no_repeat{};
+    std::cerr << no_repeat(error);
 }
-static bool wm_command(WORD cmd) {
-    switch (cmd) {
+static auto APIENTRY wm_command(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) noexcept -> LRESULT {
+    switch (LOWORD(wparam)) {
     case IDM_ABOUT: {
         DialogBox(win_resources.hInstance, MAKEINTRESOURCE(IDD_ABOUTBOX), hwnd, About);
     } break;
@@ -206,7 +213,7 @@ static bool wm_command(WORD cmd) {
         printf("%s console\n", shown ? "Show" : "Hide");
     } break;
     case IDM_DEBUG_RESET: {
-        reset_game();
+        reset_game(hwnd);
     } break;
     case IDM_DEBUG_REBUILDSHADERS: {
         game.build_shaders();
@@ -217,41 +224,23 @@ static bool wm_command(WORD cmd) {
     case IDM_EXIT: {
         DestroyWindow(hwnd);
     } break;
-    default: return false;
+    default: return DefWindowProc(hwnd, message, wparam, lparam);
     }
-    return true;
-}
-void timer_proc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) {
-    game.update();
-    InvalidateRect(hwnd, nullptr, false);
+    return 0;
 }
 static auto APIENTRY window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) noexcept -> LRESULT {
     switch (message) {
     case WM_CREATE: {
         HDC const hdc = GetDC(hwnd);
-
         setup_pixel_format(hdc);
-
-        HGLRC const hglrc = wglCreateContext(hdc);
-        wglMakeCurrent(hdc, hglrc);
-
+        setup_opengl_context(hdc);
         ReleaseDC(hwnd, hdc);
-
-        gl::set_load_proc([](char const* name) {
-            PROC proc = wglGetProcAddress(name);
-            printf("Loaded at %p %s\n", proc, name);
-            return reinterpret_cast<gl::proc_t>(proc);
-        });
-
         puts("OpenGL context ready");
 
         gl::glEnable(GL_DEBUG_OUTPUT);
-        gl::glDebugMessageCallback(opengl_debug, nullptr);
+        gl::glDebugMessageCallback(opengl_debug, hwnd);
 
-        game = { hwnd };
-        reset_game();
-
-        timer = SetTimer(hwnd, 0, UINT(1'000.0f / target_fps), timer_proc);
+        reset_game(hwnd);
     } break;
     case WM_CLOSE: {
         game = {};
@@ -263,8 +252,7 @@ static auto APIENTRY window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM 
         PostQuitMessage(0);
     } break;
     case WM_COMMAND: {
-        if (!wm_command(LOWORD(wparam)))
-            return DefWindowProc(hwnd, message, wparam, lparam);
+        return wm_command(hwnd, message, wparam, lparam);
     } break;
     case WM_ERASEBKGND: {
         return TRUE;
@@ -293,19 +281,16 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
     /*             */ _In_     int       nCmdShow) {
 
     (void)create_console();
-
     puts("Program Start!");
 
     win_resources = grab_resources(hInstance);
-
     register_class(hInstance, win_resources.window_class.c_str(), window_proc);
-    auto hwnd_owned = make_hwnd(hInstance, win_resources.window_class.c_str(), win_resources.window_title.c_str());
+    auto hwnd = make_hwnd(hInstance, win_resources.window_class.c_str(), win_resources.window_title.c_str());
+    if (!hwnd.get())
+        return EXIT_FAILURE;
 
-    if (hwnd = hwnd_owned.get());
-    else return EXIT_FAILURE;
-
-    ShowWindow(hwnd, nCmdShow);
-    UpdateWindow(hwnd);
+    ShowWindow(hwnd.get(), nCmdShow);
+    UpdateWindow(hwnd.get());
 
     auto const hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_GAMEOFLIFE));
 

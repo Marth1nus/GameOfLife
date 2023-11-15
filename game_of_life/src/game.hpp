@@ -19,14 +19,15 @@ struct timer {
 	inline constexpr auto milliseconds() const noexcept -> double { return seconds() / 1'000.0; }
 	inline constexpr auto restart() noexcept -> timer { return std::exchange(*this, timer{}); }
 };
-struct no_repeat {
-	size_t stamp{}, repeat{};
-	std::string repeat_message_buffer{};
-	using hash = std::hash<std::string_view>;
+struct no_repeat{ 
+	size_t stamp{};
+	size_t repeat{};
+	std::string buf{};
 	auto operator()(std::string_view message) -> std::string_view {
-		size_t const old_stamp = std::exchange(stamp, hash{}(message));
+		auto const hash = std::hash<std::string_view>{}(message);
+		auto const old_stamp = std::exchange(stamp, hash);
 		if (stamp == old_stamp)
-			return repeat_message_buffer = std::format("^^^ x{}\r", ++repeat);
+			return buf = std::format("^^^ x{}\r", ++repeat);
 		repeat = 1;
 		return message;
 	}

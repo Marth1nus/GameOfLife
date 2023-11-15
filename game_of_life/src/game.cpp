@@ -2,7 +2,6 @@
 
 #include "game.hpp"
 #include <array>
-using namespace std::literals;
 
 auto read_all(std::filesystem::path path) -> std::string {
 	std::ifstream file(path);
@@ -26,15 +25,9 @@ auto make_shader(gl::GLenum shader_type, std::string_view code) -> gl::raii::sha
 		std::string log(length, ' ');
 		glGetShaderInfoLog(sid, log.size(), &length, log.data());
 
-		constinit static size_t curr_hash = 0, repeat = 0;
-		size_t const prev_hash = curr_hash;
-		curr_hash = std::hash<std::string_view>{}(log);
-		if (prev_hash == curr_hash) {
-			std::cerr << "Shader error ^^^ x" << repeat++ <<'\r';
-			return 0;
-		}
-		repeat = 1;
-		std::cerr << log << '\n';
+		static no_repeat no_repeat{};
+		std::cerr << no_repeat(log);
+
 		return 0;
 	}
 	return sid;
@@ -52,7 +45,10 @@ auto make_program(std::string_view fragment_code) -> gl::raii::program {
 		glGetProgramiv(pid, GL_INFO_LOG_LENGTH, &length);
 		std::string log(length, ' ');
 		glGetProgramInfoLog(pid, log.size(), &length, log.data());
-		std::cerr << log << '\n';
+
+		static no_repeat no_repeat{};
+		std::cerr << no_repeat(log);
+
 		return 0;
 	}
 	return pid;

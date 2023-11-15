@@ -2609,7 +2609,7 @@ namespace gl::raii {
     * @returns Value from the out parameter placed into &id
     */
     template<class...Args>
-    auto make1from(auto&& constructor, Args...args) -> gl::GLuint {
+    [[nodiscard]] constexpr auto make1from(auto&& constructor, Args...args) noexcept -> gl::GLuint {
         gl::GLuint id{};
         constructor(args..., 1, &id);
         return id;
