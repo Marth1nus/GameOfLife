@@ -298,7 +298,8 @@ static auto APIENTRY wm_command(HWND hwnd, UINT message, WPARAM wparam, LPARAM l
             printf(error_fmt, path.c_str(), "stbi_write_bmp returned false");
             break;
         }
-
+        // TODO:
+        // Bug: after saving if you call rebuild the screen is blank?
         printf("Saved image '%s'\n", path.c_str());
     } break;
     case IDM_DEBUG_REBUILD_ALL: {
