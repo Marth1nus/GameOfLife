@@ -6,6 +6,12 @@
 
 #include "game.hpp"
 
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <commdlg.h>
+#include <stb_image.h>
+#include <stb_image_write.h>
+
 #include <string>
 #include <memory>
 #include <format>
@@ -97,10 +103,11 @@ static auto reset_game(HWND hwnd) -> void {
         UINT(1'000.0f / target_fps), 
         [](HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) {
             game.update();
+            printf("tik: %d\r", game.tik);
             InvalidateRect(hwnd, nullptr, false);
         });
 
-    puts("Reset");
+    puts("Rebuild");
 }
 
 using hwnd_deleter = decltype([](HWND hwnd) { return DestroyWindow(hwnd); });
@@ -212,14 +219,105 @@ static auto APIENTRY wm_command(HWND hwnd, UINT message, WPARAM wparam, LPARAM l
         CheckMenuItem(menu, IDM_DEBUG_CONSOLE, shown ? MF_CHECKED : MF_UNCHECKED);
         printf("%s console\n", shown ? "Show" : "Hide");
     } break;
-    case IDM_DEBUG_RESET: {
+    case IDM_DEBUG_LOADIMAGE: {
+        std::string const path = [&]() -> std::string {
+            WCHAR lpstrFile[MAX_PATH]{ L'\0' };
+            OPENFILENAME ofn{
+                .lStructSize = sizeof(ofn),
+                .hwndOwner = hwnd,
+                .lpstrFilter = L"Image Files (*.bmp; *.jpg; *.jpeg; *.png)\0*.bmp;*.jpg;*.jpeg;*.png\0All Files (*.*)\0*.*\0",
+                .nFilterIndex = 1,
+                .lpstrFile = lpstrFile,
+                .nMaxFile = MAX_PATH,
+                .lpstrFileTitle = nullptr,
+                .nMaxFileTitle = 0,
+                .lpstrInitialDir = nullptr,
+                .Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST,
+            };
+            if (!GetOpenFileName(&ofn))
+                return "";
+            return std::ranges::to<std::string>(lpstrFile);
+        }();
+        if (path.empty()) {
+            puts("Open file dialog canceled");
+            break;
+        }
+
+        int width{}, height{}, comp{};
+        using unique_image = std::unique_ptr < stbi_uc, decltype([](auto* p) { return stbi_image_free(p); }) > ;
+        unique_image const image{ 
+            stbi_load(path.c_str(), &width, &height, &comp, 1) 
+        };
+        static constexpr char error_fmt[] = "Failed to load image '%s' because '%s'\n";
+        if (!image) {
+            printf(error_fmt, path.c_str(), "stbi_load returned null");
+            break;
+        }
+        if (comp != 1) {
+            printf(error_fmt, path.c_str(), "Image did not have exactly 1 pixel component");
+            break;
+        }
+
+        game.width = width;
+        game.height = height;
+        game.build_textures();
+        try { 
+            std::span const pixels{ image.get(), static_cast<size_t>(width) * height };
+            game.upload_image(pixels); 
+        }
+        catch (std::range_error error) { 
+            printf(error_fmt, path.c_str(), error.what());
+            break;
+        }
+
+        printf("Loaded image '%s'\n", path.c_str());
+    } break;
+    case IDM_DEBUG_SAVEIMAGE: {
+        std::string const path = [&]() -> std::string {
+            WCHAR lpstrFile[MAX_PATH]{ L'\0' };
+            OPENFILENAME ofn{
+                .lStructSize = sizeof(ofn),
+                .hwndOwner = NULL,
+                .lpstrFilter = L"BMP Files (*.bmp)\0*.bmp\0All Files (*.*)\0*.*\0",
+                .lpstrFile = lpstrFile,
+                .nMaxFile = MAX_PATH,
+                .Flags = OFN_EXPLORER | OFN_OVERWRITEPROMPT,
+            };
+            if (!GetSaveFileNameW(&ofn))
+                return "";
+            return std::ranges::to<std::string>(lpstrFile);
+        }();
+        if (path.empty()) {
+            puts("Save file dialog canceled");
+            break;
+        }
+
+        static constexpr char error_fmt[] = "Failed to save image '%s' because '%s'\n";
+        if (std::vector const pixels = game.download_image();
+            !stbi_write_bmp(path.c_str(), static_cast<int>(game.width), static_cast<int>(game.height), 1, pixels.data())) {
+            printf(error_fmt, path.c_str(), "stbi_write_bmp returned false");
+            break;
+        }
+
+        printf("Saved image '%s'\n", path.c_str());
+    } break;
+    case IDM_DEBUG_REBUILD_ALL: {
         reset_game(hwnd);
     } break;
-    case IDM_DEBUG_REBUILDSHADERS: {
+    case IDM_DEBUG_REBUILD_SHADERS: {
         game.build_shaders();
+        puts("Build shader");
     } break;
-    case IDM_DEBUG_REBUILDTEXTURES: {
+    case IDM_DEBUG_REBUILD_TEXTURES: {
         game.build_textures();
+        game.upload_noise_image();
+        puts("Build texture");
+    } break;
+    case IDM_DEBUG_SETVALUE_UPS: {
+        // TODO
+    } break;
+    case IDM_DEBUG_SETVALUE_GRIDSIZE: {
+        // TODO
     } break;
     case IDM_EXIT: {
         DestroyWindow(hwnd);
@@ -269,8 +367,7 @@ static auto APIENTRY window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM 
         auto const h = HIWORD(lparam);
         gl::glViewport(0, 0, w, h);
     } break;
-    default:
-        return DefWindowProc(hwnd, message, wparam, lparam);
+    default: return DefWindowProc(hwnd, message, wparam, lparam);
     }
     return 0;
 }

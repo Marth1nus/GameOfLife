@@ -85,6 +85,7 @@
     <ClangTidyChecks>
     </ClangTidyChecks>
     <LinkIncremental>true</LinkIncremental>
+    <ExternalIncludePath>$(SolutionDir)\stb;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>bin\$(Configuration)\$(Platform)\</OutDir>
@@ -94,6 +95,7 @@
     </EnableClangTidyCodeAnalysis>
     <ClangTidyChecks>
     </ClangTidyChecks>
+    <ExternalIncludePath>$(SolutionDir)\stb;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>bin\$(Configuration)\$(Platform)\</OutDir>
@@ -104,6 +106,7 @@
     <ClangTidyChecks>
     </ClangTidyChecks>
     <LinkIncremental>true</LinkIncremental>
+    <ExternalIncludePath>$(SolutionDir)\stb;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>bin\$(Configuration)\$(Platform)\</OutDir>
@@ -113,6 +116,7 @@
     </EnableClangTidyCodeAnalysis>
     <ClangTidyChecks>
     </ClangTidyChecks>
+    <ExternalIncludePath>$(SolutionDir)\stb;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -135,6 +139,8 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <ScanSourceForModuleDependencies />
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -164,6 +170,8 @@
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <ScanSourceForModuleDependencies />
+      <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -194,6 +202,8 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <ScanSourceForModuleDependencies />
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -223,6 +233,8 @@
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <ScanSourceForModuleDependencies />
+      <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

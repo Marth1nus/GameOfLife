@@ -23,7 +23,7 @@ struct no_repeat{
 	size_t stamp{};
 	size_t repeat{};
 	std::string buf{};
-	auto operator()(std::string_view message) -> std::string_view {
+	auto operator()(std::string_view message) & -> std::string_view {
 		auto const hash = std::hash<std::string_view>{}(message);
 		auto const old_stamp = std::exchange(stamp, hash);
 		if (stamp == old_stamp)
@@ -41,6 +41,12 @@ public: /* Function View */
 	void build_textures();
 	void locate_uniforms();
 	void set_uniforms(bool display_only);
+
+	bool pull_size();
+	void upload_image(std::span<uint8_t const> pixels);
+	void upload_noise_image();
+	auto download_image() -> std::vector<uint8_t>;
+
 	void update();
 	void draw();
 

@@ -76,6 +76,8 @@ void game_of_life::build() {
 	glEnableVertexArrayAttrib(vao, 0);
 
 	build_textures();
+	upload_noise_image();
+
 	build_shaders();
 }
 void game_of_life::build_shaders() {
@@ -91,10 +93,6 @@ void game_of_life::build_textures() {
 	glTextureParameteri(tid, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 	glTextureParameteri(tid, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTextureParameteri(tid, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-	std::vector<uint8_t> pixels(width * height);
-	std::ranges::generate(pixels, rand);
-	glTextureSubImage2D(tid, 0, 0, 0, width, height, GL_RED, GL_UNSIGNED_BYTE, pixels.data());
 
 	fbo = raii::make1from(glCreateFramebuffers);
 	glNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, tid, 0);
@@ -143,6 +141,53 @@ void game_of_life::set_uniforms(bool display_only) {
 	glProgramUniform3ui(pid, uniform_mouse_buttons, bool(mouse1 & key_down), bool(mouse2 & key_down), bool(mouse3 & key_down));
 	glProgramUniform2f (pid, uniform_mouse_pos, mouse_pos.x, mouse_pos.y);
 }
+
+bool game_of_life::pull_size()
+{
+	using gl::glGetTextureLevelParameteriv;
+
+	GLint width{}, height{};
+	glGetTextureLevelParameteriv(tid, 0, GL_TEXTURE_WIDTH, &width);
+	glGetTextureLevelParameteriv(tid, 0, GL_TEXTURE_HEIGHT, &height);
+
+	bool was_same = this->width == width
+		/*    */ && this->height == height;
+
+	this->width = width;
+	this->height = height;
+
+	return was_same;
+}
+void game_of_life::upload_image(std::span<uint8_t const> pixels)
+{
+	using namespace gl;
+	if (bool size_synced = pull_size());
+	else throw std::runtime_error{ "width and/or height was out of sync" };
+
+	if (pixels.size() != static_cast<size_t>(width) * height)
+		throw new std::range_error{ "size(pixels) != width * height" };
+
+	glTextureSubImage2D(tid, 0, 0, 0, width, height, GL_RED, GL_UNSIGNED_BYTE, pixels.data());
+}
+void game_of_life::upload_noise_image()
+{
+	std::vector<uint8_t> pixels(width * height);
+	std::ranges::generate(pixels, rand);
+	upload_image(pixels);
+}
+auto game_of_life::download_image() -> std::vector<uint8_t>
+{
+	using namespace gl;
+
+	if (bool size_synced = pull_size());
+	else throw std::runtime_error{ "width and/or height was out of sync" };
+
+	std::vector<uint8_t> pixels(static_cast<size_t>(width) * height);
+	glGetTextureImage(tid, 0, GL_RED, GL_UNSIGNED_BYTE, pixels.size(), pixels.data());
+	return pixels;
+}
+
+
 void game_of_life::update() {
 	using namespace gl;
 
