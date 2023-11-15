@@ -26,8 +26,6 @@ static float target_fps = 30;
 static resources win_resources{};
 static game_of_life game;
 
-static LRESULT APIENTRY window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) noexcept;
-
 static auto grab_resources(HINSTANCE hInstance) -> resources {
     resources res{.hInstance = hInstance};
     int constexpr buffer_max = 32;
@@ -43,19 +41,19 @@ static auto grab_resources(HINSTANCE hInstance) -> resources {
 
     return res;
 }
-static auto register_class(resources const& resources) -> ATOM {
+static auto register_class(HINSTANCE hInstance, WCHAR const* class_name, WNDPROC window_proc) -> ATOM {
     WNDCLASSEX const wcex{
          .cbSize        /**/ = sizeof(WNDCLASSEX),
          .style         /**/ = CS_HREDRAW | CS_VREDRAW,
          .lpfnWndProc   /**/ = window_proc,
          .cbClsExtra    /**/ = 0,
          .cbWndExtra    /**/ = 0,
-         .hInstance     /**/ = resources.hInstance,
+         .hInstance     /**/ = hInstance,
          .hIcon         /**/ = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_GAMEOFLIFE)),
          .hCursor       /**/ = LoadCursor(nullptr, IDC_ARROW),
          .hbrBackground /**/ = (HBRUSH)(COLOR_WINDOW + 1),
          .lpszMenuName  /**/ = MAKEINTRESOURCEW(IDC_GAMEOFLIFE),
-         .lpszClassName /**/ = resources.window_class.c_str(),
+         .lpszClassName /**/ = class_name,
          .hIconSm       /**/ = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL))
     };
     return RegisterClassExW(&wcex);
@@ -90,10 +88,10 @@ static auto reset_game() {
 
 using hwnd_deleter = decltype([](HWND hwnd) { return DestroyWindow(hwnd); });
 using unique_hwnd = std::unique_ptr<std::remove_pointer_t<HWND>, hwnd_deleter>;
-static auto make_hwnd(resources const& resources) -> unique_hwnd {
+static auto make_hwnd(HINSTANCE hInstance, WCHAR const* window_class, WCHAR const* window_title) -> unique_hwnd {
     return unique_hwnd{ CreateWindowExW(0,
-        resources.window_class.c_str(),
-        resources.window_title.c_str(),
+        window_class,
+        window_title,
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
@@ -101,7 +99,7 @@ static auto make_hwnd(resources const& resources) -> unique_hwnd {
         256 * 2,
         nullptr,
         nullptr,
-        resources.hInstance,
+        hInstance,
         nullptr
     ) };
 }
@@ -225,7 +223,7 @@ static bool wm_command(WORD cmd) {
 }
 void timer_proc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) {
     game.update();
-    InvalidateRect(hwnd, nullptr, 0);
+    InvalidateRect(hwnd, nullptr, false);
 }
 static auto APIENTRY window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) noexcept -> LRESULT {
     switch (message) {
@@ -300,8 +298,8 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
 
     win_resources = grab_resources(hInstance);
 
-    register_class(win_resources);
-    auto hwnd_owned = make_hwnd(win_resources);
+    register_class(hInstance, win_resources.window_class.c_str(), window_proc);
+    auto hwnd_owned = make_hwnd(hInstance, win_resources.window_class.c_str(), win_resources.window_title.c_str());
 
     if (hwnd = hwnd_owned.get());
     else return EXIT_FAILURE;

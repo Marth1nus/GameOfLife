@@ -19,6 +19,18 @@ struct timer {
 	inline constexpr auto milliseconds() const noexcept -> double { return seconds() / 1'000.0; }
 	inline constexpr auto restart() noexcept -> timer { return std::exchange(*this, timer{}); }
 };
+struct no_repeat {
+	size_t stamp{}, repeat{};
+	std::string repeat_message_buffer{};
+	using hash = std::hash<std::string_view>;
+	auto operator()(std::string_view message) -> std::string_view {
+		size_t const old_stamp = std::exchange(stamp, hash{}(message));
+		if (stamp == old_stamp)
+			return repeat_message_buffer = std::format("^^^ x{}\r", ++repeat);
+		repeat = 1;
+		return message;
+	}
+};
 
 struct game_of_life {
 public: /* Function View */
