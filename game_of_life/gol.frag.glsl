@@ -45,8 +45,9 @@ void main() {
 		return;
 	}
 	uint a = alive();
+	uint radius = clamp(min(grid_size.x, grid_size.y) / 50, 1u, 20u);
 	if (mouse_buttons.x == 1
- 	&&  length(mouse_pos / window_size * grid_size - gl_FragCoord.xy) < 1)
+ 	&&  length(mouse_pos / window_size * grid_size - gl_FragCoord.xy) < radius)
 		a = 1;
-	frag_color = vec4(a,a,a,1);
+	frag_color = vec4(a);
 }
