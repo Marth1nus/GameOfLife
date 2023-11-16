@@ -27,6 +27,7 @@ struct resources {
 };
 static float target_fps = 30;
 static resources win_resources{};
+static std::filesystem::path shader_path = ".\\gol.frag.glsl";
 static game_of_life game{};
 
 static auto grab_resources(HINSTANCE hInstance) -> resources {
@@ -92,9 +93,22 @@ static auto create_console() -> HWND {
     puts("Created Console");
     return GetConsoleWindow();
 }
-static auto reset_game(HWND hwnd) -> void {
+static auto build_shader() -> void {
+    std::string const code = [] {
+        std::ifstream file(shader_path);
+        std::ostringstream lines;
+        lines << file.rdbuf();
+        return lines.str();
+    }();
+    game.load_shader(code);
+
+    std::string const path = shader_path.string();
+    printf("Build Shader '%s'\n", path.c_str());
+}
+static auto build_game(HWND hwnd) -> void {
     game = { hwnd, game.width, game.height };
     game.build();
+    build_shader();
 
     constinit static UINT_PTR timer = 0;
     timer = SetTimer(
@@ -103,11 +117,27 @@ static auto reset_game(HWND hwnd) -> void {
         UINT(1'000.0f / target_fps), 
         [](HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) {
             game.update();
-            printf("tik: %d\r", game.tik);
             InvalidateRect(hwnd, nullptr, false);
         });
 
-    puts("Rebuild");
+    puts("Build all");
+}
+static auto file_dialog(decltype(GetOpenFileName) const& get_file_name, OPENFILENAME ofp) -> std::string {
+    size_t static constexpr buffer_max = MAX_PATH;
+    std::filesystem::path::string_type
+        file_name      /**/(buffer_max, L'\0'),
+        working_dir    /**/(buffer_max, L'\0');
+    ofp.lStructSize    /**/ = sizeof(ofp);
+    ofp.lpstrFile      /**/ = std::data(file_name);
+    ofp.nMaxFile       /**/ = static_cast<DWORD>(std::size(file_name));
+    GetCurrentDirectory(static_cast<DWORD>(std::size(working_dir)), std::data(working_dir));
+    BOOL success = get_file_name(&ofp);
+    SetCurrentDirectory(std::data(working_dir));
+    if (!success) {
+        wprintf(L"File dialog canceled '%s'\n", file_name.c_str());
+        return "";
+    }
+    return std::ranges::to<std::string>(file_name);
 }
 
 using hwnd_deleter = decltype([](HWND hwnd) { return DestroyWindow(hwnd); });
@@ -147,7 +177,7 @@ static auto CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
     return (INT_PTR)FALSE;
 }
 
-static auto APIENTRY opengl_debug(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam) noexcept -> void {
+static auto APIENTRY opengl_debug(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, char const* message, void const* userParam) noexcept -> void {
     using namespace std::literals;
     if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) return;
     std::string_view const str_source   /**/{ 
@@ -205,8 +235,91 @@ static auto APIENTRY opengl_debug(GLenum source, GLenum type, GLuint id, GLenum 
 }
 static auto APIENTRY wm_command(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) noexcept -> LRESULT {
     switch (LOWORD(wparam)) {
-    case IDM_ABOUT: {
-        DialogBox(win_resources.hInstance, MAKEINTRESOURCE(IDD_ABOUTBOX), hwnd, About);
+    case IDM_FILE_NEW: {
+        (void)create_console();
+        HWND const console = GetConsoleWindow();
+        BOOL const shown = IsWindowVisible(console);
+        ShowWindow(console, SW_SHOW);
+
+        auto const ask_int = [](char const* question) {
+            int res = -1;
+            while (res == -1) {
+                printf(question);
+                if (!scanf_s("%d", &res)) {
+                    puts("invalid value");
+                }
+            }
+            return res;
+        };
+
+        puts("New");
+        game.width  /**/ = ask_int("width  = ");
+        game.height /**/ = ask_int("height = ");
+        build_game(hwnd);
+        build_shader();
+        
+        ShowWindow(console, shown ? SW_SHOW : SW_HIDE);
+    } break;
+    case IDM_FILE_LOADSHADER: {
+        std::string const path = file_dialog(GetOpenFileName, {
+            .hwndOwner = hwnd,
+            .lpstrFilter = L"GLSL/Fragment Shader Files (*.glsl;*.frag)\0*.glsl;*.frag\0All Files (*.*)\0*.*\0",
+            .Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST,
+            });
+        if (path.empty()) break;
+        shader_path = path;
+        build_shader();
+    } break;
+    case IDM_FILE_LOADIMAGE: {
+        std::string const path = file_dialog(GetOpenFileName, {
+            .hwndOwner = hwnd,
+            .lpstrFilter = L"Image Files (*.bmp;*.jpg;*.png)\0*.bmp;*.jpg;*.png\0All Files (*.*)\0*.*\0",
+            .Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST,
+            });
+        if (path.empty()) break;
+
+        int width{}, height{}, comp{};
+        using unique_image = std::unique_ptr < stbi_uc, decltype([](auto* p) { return stbi_image_free(p); }) > ;
+        unique_image const image{ stbi_load(path.c_str(), &width, &height, &comp, 1) };
+        static constexpr char error_fmt[] = "Failed to load image '%s' because '%s'\n";
+        if (!image) {
+            printf(error_fmt, path.c_str(), "stbi_load returned null");
+            break;
+        }
+
+        game.width = width;
+        game.height = height;
+        game.build_texture();
+        try { 
+            std::span const pixels{ image.get(), static_cast<size_t>(width) * height };
+            game.upload_image(pixels); 
+        }
+        catch (std::range_error error) { 
+            printf(error_fmt, path.c_str(), error.what());
+            break;
+        }
+
+        printf("Loaded image '%s'\n", path.c_str());
+    } break;
+    case IDM_FILE_SAVEIMAGE: {
+        std::vector const pixels = game.download_image();
+        std::string const path = file_dialog(GetSaveFileName, {
+            .hwndOwner = hwnd,
+            .lpstrFilter = L"Bitmap Files(*.bmp)\0 * .bmp\0All Files(*.*)\0 * .*\0",
+            .Flags = OFN_EXPLORER | OFN_OVERWRITEPROMPT,
+            .lpstrDefExt = L".bmp",
+            });
+        if (path.empty()) break;
+
+        static constexpr char error_fmt[] = "Failed to save image '%s' because '%s'\n";
+        if (!stbi_write_bmp(path.c_str(), static_cast<int>(game.width), static_cast<int>(game.height), 1, pixels.data())) {
+            printf(error_fmt, path.c_str(), "stbi_write_bmp returned false");
+            break;
+        }
+        printf("Saved image '%s'\n", path.c_str());
+    } break;
+    case IDM_EXIT: {
+        DestroyWindow(hwnd);
     } break;
     case IDM_DEBUG_CONSOLE: {
         (void)create_console();
@@ -219,109 +332,19 @@ static auto APIENTRY wm_command(HWND hwnd, UINT message, WPARAM wparam, LPARAM l
         CheckMenuItem(menu, IDM_DEBUG_CONSOLE, shown ? MF_CHECKED : MF_UNCHECKED);
         printf("%s console\n", shown ? "Show" : "Hide");
     } break;
-    case IDM_DEBUG_LOADIMAGE: {
-        std::string const path = [&]() -> std::string {
-            WCHAR lpstrFile[MAX_PATH]{ L'\0' };
-            OPENFILENAME ofn{
-                .lStructSize = sizeof(ofn),
-                .hwndOwner = hwnd,
-                .lpstrFilter = L"Image Files (*.bmp; *.jpg; *.jpeg; *.png)\0*.bmp;*.jpg;*.jpeg;*.png\0All Files (*.*)\0*.*\0",
-                .nFilterIndex = 1,
-                .lpstrFile = lpstrFile,
-                .nMaxFile = MAX_PATH,
-                .lpstrFileTitle = nullptr,
-                .nMaxFileTitle = 0,
-                .lpstrInitialDir = nullptr,
-                .Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST,
-            };
-            if (!GetOpenFileName(&ofn))
-                return "";
-            return std::ranges::to<std::string>(lpstrFile);
-        }();
-        if (path.empty()) {
-            puts("Open file dialog canceled");
-            break;
-        }
-
-        int width{}, height{}, comp{};
-        using unique_image = std::unique_ptr < stbi_uc, decltype([](auto* p) { return stbi_image_free(p); }) > ;
-        unique_image const image{ 
-            stbi_load(path.c_str(), &width, &height, &comp, 1) 
-        };
-        static constexpr char error_fmt[] = "Failed to load image '%s' because '%s'\n";
-        if (!image) {
-            printf(error_fmt, path.c_str(), "stbi_load returned null");
-            break;
-        }
-        if (comp != 1) {
-            printf(error_fmt, path.c_str(), "Image did not have exactly 1 pixel component");
-            break;
-        }
-
-        game.width = width;
-        game.height = height;
-        game.build_textures();
-        try { 
-            std::span const pixels{ image.get(), static_cast<size_t>(width) * height };
-            game.upload_image(pixels); 
-        }
-        catch (std::range_error error) { 
-            printf(error_fmt, path.c_str(), error.what());
-            break;
-        }
-
-        printf("Loaded image '%s'\n", path.c_str());
-    } break;
-    case IDM_DEBUG_SAVEIMAGE: {
-        std::string const path = [&]() -> std::string {
-            WCHAR lpstrFile[MAX_PATH]{ L'\0' };
-            OPENFILENAME ofn{
-                .lStructSize = sizeof(ofn),
-                .hwndOwner = NULL,
-                .lpstrFilter = L"BMP Files (*.bmp)\0*.bmp\0All Files (*.*)\0*.*\0",
-                .lpstrFile = lpstrFile,
-                .nMaxFile = MAX_PATH,
-                .Flags = OFN_EXPLORER | OFN_OVERWRITEPROMPT,
-            };
-            if (!GetSaveFileNameW(&ofn))
-                return "";
-            return std::ranges::to<std::string>(lpstrFile);
-        }();
-        if (path.empty()) {
-            puts("Save file dialog canceled");
-            break;
-        }
-
-        static constexpr char error_fmt[] = "Failed to save image '%s' because '%s'\n";
-        if (std::vector const pixels = game.download_image();
-            !stbi_write_bmp(path.c_str(), static_cast<int>(game.width), static_cast<int>(game.height), 1, pixels.data())) {
-            printf(error_fmt, path.c_str(), "stbi_write_bmp returned false");
-            break;
-        }
-        // TODO:
-        // Bug: after saving if you call rebuild the screen is blank?
-        printf("Saved image '%s'\n", path.c_str());
-    } break;
     case IDM_DEBUG_REBUILD_ALL: {
-        reset_game(hwnd);
+        build_game(hwnd);
     } break;
-    case IDM_DEBUG_REBUILD_SHADERS: {
-        game.build_shaders();
-        puts("Build shader");
+    case IDM_DEBUG_REBUILD_SHADER: {
+        build_shader();
     } break;
-    case IDM_DEBUG_REBUILD_TEXTURES: {
-        game.build_textures();
+    case IDM_DEBUG_REBUILD_TEXTURE: {
+        game.build_texture();
         game.upload_noise_image();
         puts("Build texture");
     } break;
-    case IDM_DEBUG_SETVALUE_UPS: {
-        // TODO
-    } break;
-    case IDM_DEBUG_SETVALUE_GRIDSIZE: {
-        // TODO
-    } break;
-    case IDM_EXIT: {
-        DestroyWindow(hwnd);
+    case IDM_ABOUT: {
+        DialogBox(win_resources.hInstance, MAKEINTRESOURCE(IDD_ABOUTBOX), hwnd, About);
     } break;
     default: return DefWindowProc(hwnd, message, wparam, lparam);
     }
@@ -339,7 +362,7 @@ static auto APIENTRY window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM 
         gl::glEnable(GL_DEBUG_OUTPUT);
         gl::glDebugMessageCallback(opengl_debug, hwnd);
 
-        reset_game(hwnd);
+        build_game(hwnd);
     } break;
     case WM_CLOSE: {
         game = {};
@@ -380,6 +403,10 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
 
     (void)create_console();
     puts("Program Start!");
+
+#ifndef DEBUG
+    ShowWindow(GetConsoleWindow(), SW_HIDE);
+#endif // DEBUG
 
     win_resources = grab_resources(hInstance);
     register_class(hInstance, win_resources.window_class.c_str(), window_proc);

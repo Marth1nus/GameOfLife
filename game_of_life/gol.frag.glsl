@@ -7,6 +7,7 @@ uniform sampler2D source;
 uniform uvec2     grid_size;
 uniform uvec2     window_size;
 uniform uint      tik;
+uniform uint      pause;
 uniform uint      millis;
 uniform vec2      mouse_pos;
 uniform uvec3     mouse_buttons;
@@ -24,8 +25,7 @@ uint count_alive_neighbors(ivec2 pos) {
 	return count;
 }
 
-uint alive() {
-	ivec2 pos = ivec2(gl_FragCoord.xy);
+uint alive(ivec2 pos) {
 	uint neighbor_count = count_alive_neighbors(pos);
 	uint self = get_cell(pos);
 	return (self == 1 
@@ -33,10 +33,22 @@ uint alive() {
 		: neighbor_count == 3 ) ? 1 : 0;
 }
 
+vec4 grid_outline() {
+	vec2 cell_size = vec2(window_size) / grid_size;
+	vec2 line = round(gl_FragCoord.xy / cell_size) * cell_size;
+	float dist = distance(gl_FragCoord.xy, line);
+	float radius = clamp(length(cell_size) / 10, 0, 4);
+	float s = 0.4;
+	return dist > radius ? vec4(0) :
+		pause == 1
+		? vec4(s,0,0,0)
+		: vec4(0,s,0,0);
+}
+
 vec4 display() {
 	vec2 tex = gl_FragCoord.xy / window_size;
 	tex.y = 1.0 - tex.y;
-	return texture(source, tex);
+	return max(texture(source, tex), grid_outline());
 }
 
 void main() {
@@ -44,10 +56,14 @@ void main() {
 		frag_color = display();
 		return;
 	}
-	uint a = alive();
-	uint radius = clamp(min(grid_size.x, grid_size.y) / 50, 1u, 20u);
-	if (mouse_buttons.x == 1
- 	&&  length(mouse_pos / window_size * grid_size - gl_FragCoord.xy) < radius)
-		a = 1;
+	ivec2 pos = ivec2(gl_FragCoord.xy);
+	uint a = pause == 1 ? get_cell(pos) : alive(pos);
+
+	float radius = 0.5;
+	vec2 mouse_dist = abs(mouse_pos / window_size * grid_size - gl_FragCoord.xy);
+ 	bool mouse_hover = max(mouse_dist.x, mouse_dist.y) < radius;
+	if (mouse_hover && mouse_buttons.x == 1) a = 1;
+	if (mouse_hover && mouse_buttons.y == 1) a = 0;
+
 	frag_color = vec4(a);
 }

@@ -3,13 +3,6 @@
 #include "game.hpp"
 #include <array>
 
-auto read_all(std::filesystem::path path) -> std::string {
-	std::ifstream file(path);
-	if (!file) return "";
-	std::ostringstream stream{};
-	stream << file.rdbuf();
-	return stream.str();
-}
 auto make_shader(gl::GLenum shader_type, std::string_view code) -> gl::raii::shader {
 	using namespace gl;
 	raii::shader sid = glCreateShader(shader_type);
@@ -75,16 +68,33 @@ void game_of_life::build() {
 	glVertexArrayAttribBinding(vao, 0, 0);
 	glEnableVertexArrayAttrib(vao, 0);
 
-	build_textures();
+	build_texture();
 	upload_noise_image();
 
-	build_shaders();
+	load_shader(""
+		"\n#version 460 core"
+		"\nout vec4 color;"
+		"\nuniform uvec2 window_size;"
+		"\nvoid main() { color = vec4(gl_FragCoord.xy / window_size, 0, 1); }"
+	);
 }
-void game_of_life::build_shaders() {
-	pid = make_program(read_all("gol.frag.glsl"));
-	locate_uniforms();
+
+bool game_of_life::pull_size() {
+	using gl::glGetTextureLevelParameteriv;
+
+	GLint width{}, height{};
+	glGetTextureLevelParameteriv(tid, 0, GL_TEXTURE_WIDTH, &width);
+	glGetTextureLevelParameteriv(tid, 0, GL_TEXTURE_HEIGHT, &height);
+
+	bool was_same = this->width == width
+		/*    */ && this->height == height;
+
+	this->width = width;
+	this->height = height;
+
+	return was_same;
 }
-void game_of_life::build_textures() {
+void game_of_life::build_texture() {
 	using namespace gl;
 
 	tid = raii::make1from(glCreateTextures, GL_TEXTURE_2D);
@@ -100,6 +110,36 @@ void game_of_life::build_textures() {
 		status != GL_FRAMEBUFFER_COMPLETE)
 		throw std::runtime_error("framebuffer incomplete");
 }
+void game_of_life::upload_image(std::span<uint8_t const> pixels) {
+	using namespace gl;
+	if (bool size_synced = pull_size());
+	else throw std::runtime_error{ "width and/or height was out of sync" };
+
+	if (pixels.size() != static_cast<size_t>(width) * height)
+		throw new std::range_error{ "size(pixels) != width * height" };
+
+	glTextureSubImage2D(tid, 0, 0, 0, width, height, GL_RED, GL_UNSIGNED_BYTE, pixels.data());
+}
+void game_of_life::upload_noise_image() {
+	std::vector<uint8_t> pixels(width * height);
+	std::ranges::generate(pixels, rand);
+	upload_image(pixels);
+}
+auto game_of_life::download_image() -> std::vector<uint8_t> {
+	using namespace gl;
+
+	if (bool size_synced = pull_size());
+	else throw std::runtime_error{ "width and/or height was out of sync" };
+
+	std::vector<uint8_t> pixels(static_cast<size_t>(width) * height);
+	glGetTextureImage(tid, 0, GL_RED, GL_UNSIGNED_BYTE, pixels.size(), pixels.data());
+	return pixels;
+}
+
+void game_of_life::load_shader(std::string_view code) {
+	pid = make_program(code);
+	locate_uniforms();
+}
 void game_of_life::locate_uniforms() {
 	using gl::glGetUniformLocation;
 	uniform_display_only  /**/ = glGetUniformLocation(pid, "display_only");
@@ -107,6 +147,7 @@ void game_of_life::locate_uniforms() {
 	uniform_grid_size     /**/ = glGetUniformLocation(pid, "grid_size");
 	uniform_window_size   /**/ = glGetUniformLocation(pid, "window_size");
 	uniform_tik           /**/ = glGetUniformLocation(pid, "tik");
+	uniform_pause         /**/ = glGetUniformLocation(pid, "pause");
 	uniform_millis        /**/ = glGetUniformLocation(pid, "millis");
 	uniform_mouse_buttons /**/ = glGetUniformLocation(pid, "mouse_buttons");
 	uniform_mouse_pos     /**/ = glGetUniformLocation(pid, "mouse_pos");
@@ -136,63 +177,33 @@ void game_of_life::set_uniforms(bool display_only) {
 	glProgramUniform2ui(pid, uniform_grid_size, width, height);
 	glProgramUniform2ui(pid, uniform_window_size, client_rect.right - client_rect.left, client_rect.bottom - client_rect.top);
 	glProgramUniform1ui(pid, uniform_tik, tik);
-
+	glProgramUniform1ui(pid, uniform_pause, pause);
 	glProgramUniform1f (pid, uniform_millis, static_cast<float>(time.milliseconds()));
 	glProgramUniform3ui(pid, uniform_mouse_buttons, bool(mouse1 & key_down), bool(mouse2 & key_down), bool(mouse3 & key_down));
 	glProgramUniform2f (pid, uniform_mouse_pos, mouse_pos.x, mouse_pos.y);
 }
 
-bool game_of_life::pull_size()
-{
-	using gl::glGetTextureLevelParameteriv;
-
-	GLint width{}, height{};
-	glGetTextureLevelParameteriv(tid, 0, GL_TEXTURE_WIDTH, &width);
-	glGetTextureLevelParameteriv(tid, 0, GL_TEXTURE_HEIGHT, &height);
-
-	bool was_same = this->width == width
-		/*    */ && this->height == height;
-
-	this->width = width;
-	this->height = height;
-
-	return was_same;
-}
-void game_of_life::upload_image(std::span<uint8_t const> pixels)
-{
-	using namespace gl;
-	if (bool size_synced = pull_size());
-	else throw std::runtime_error{ "width and/or height was out of sync" };
-
-	if (pixels.size() != static_cast<size_t>(width) * height)
-		throw new std::range_error{ "size(pixels) != width * height" };
-
-	glTextureSubImage2D(tid, 0, 0, 0, width, height, GL_RED, GL_UNSIGNED_BYTE, pixels.data());
-}
-void game_of_life::upload_noise_image()
-{
-	std::vector<uint8_t> pixels(width * height);
-	std::ranges::generate(pixels, rand);
-	upload_image(pixels);
-}
-auto game_of_life::download_image() -> std::vector<uint8_t>
-{
-	using namespace gl;
-
-	if (bool size_synced = pull_size());
-	else throw std::runtime_error{ "width and/or height was out of sync" };
-
-	std::vector<uint8_t> pixels(static_cast<size_t>(width) * height);
-	glGetTextureImage(tid, 0, GL_RED, GL_UNSIGNED_BYTE, pixels.size(), pixels.data());
-	return pixels;
-}
-
-
 void game_of_life::update() {
 	using namespace gl;
 
+	uint16_t static constexpr
+		key_down = 0x8000,
+		key_just_pressed = 0x0001;
+	uint16_t const
+		arrow_up    /**/ = GetAsyncKeyState(VK_UP),
+		arrow_down  /**/ = GetAsyncKeyState(VK_DOWN),
+		arrow_left  /**/ = GetAsyncKeyState(VK_LEFT),
+		arrow_right /**/ = GetAsyncKeyState(VK_RIGHT);
+
+	if (arrow_up & key_just_pressed
+	||  arrow_right & key_just_pressed)
+		pause = !pause;
+
 	tik++;
 	set_uniforms(false);
+
+	if (arrow_right & key_just_pressed)
+		pause = !pause;
 
 	glUseProgram(pid);
 	glBindVertexArray(vao);

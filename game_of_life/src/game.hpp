@@ -10,6 +10,7 @@
 #include <utility>
 #include <ranges>
 #include <concepts>
+#include <stdexcept>
 #include <chrono>
 
 struct timer {
@@ -37,15 +38,16 @@ struct game_of_life {
 public: /* Function View */
 
 	void build();
-	void build_shaders();
-	void build_textures();
-	void locate_uniforms();
-	void set_uniforms(bool display_only);
 
 	bool pull_size();
+	void build_texture();
 	void upload_image(std::span<uint8_t const> pixels);
 	void upload_noise_image();
 	auto download_image() -> std::vector<uint8_t>;
+
+	void locate_uniforms();
+	void set_uniforms(bool display_only);
+	void load_shader(std::string_view code);
 
 	void update();
 	void draw();
@@ -60,6 +62,7 @@ public: /* State */
 	GLuint tik{};
 	POINT mouse_pos{};
 	timer time{};
+	bool pause = false;
 
 public: /* Graphics */
 	gl::raii::buffer vbo{};
@@ -73,6 +76,7 @@ public: /* Graphics */
 		uniform_grid_size{},
 		uniform_window_size{},
 		uniform_tik{},
+		uniform_pause{},
 		uniform_millis{},
 		uniform_mouse_buttons{},
 		uniform_mouse_pos{};
