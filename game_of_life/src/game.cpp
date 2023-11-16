@@ -71,12 +71,7 @@ void game_of_life::build() {
 	build_texture();
 	upload_noise_image();
 
-	load_shader(""
-		"\n#version 460 core"
-		"\nout vec4 color;"
-		"\nuniform uvec2 window_size;"
-		"\nvoid main() { color = vec4(gl_FragCoord.xy / window_size, 0, 1); }"
-	);
+	load_shader();
 }
 
 bool game_of_life::pull_size() {

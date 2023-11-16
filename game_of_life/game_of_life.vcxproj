@@ -86,6 +86,7 @@
     </ClangTidyChecks>
     <LinkIncremental>true</LinkIncremental>
     <ExternalIncludePath>$(SolutionDir)\stb;$(ExternalIncludePath)</ExternalIncludePath>
+    <CopyLocalDeploymentContent>true</CopyLocalDeploymentContent>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>bin\$(Configuration)\$(Platform)\</OutDir>
@@ -96,6 +97,7 @@
     <ClangTidyChecks>
     </ClangTidyChecks>
     <ExternalIncludePath>$(SolutionDir)\stb;$(ExternalIncludePath)</ExternalIncludePath>
+    <CopyLocalDeploymentContent>true</CopyLocalDeploymentContent>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>bin\$(Configuration)\$(Platform)\</OutDir>
@@ -107,6 +109,7 @@
     </ClangTidyChecks>
     <LinkIncremental>true</LinkIncremental>
     <ExternalIncludePath>$(SolutionDir)\stb;$(ExternalIncludePath)</ExternalIncludePath>
+    <CopyLocalDeploymentContent>true</CopyLocalDeploymentContent>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>bin\$(Configuration)\$(Platform)\</OutDir>
@@ -117,6 +120,7 @@
     <ClangTidyChecks>
     </ClangTidyChecks>
     <ExternalIncludePath>$(SolutionDir)\stb;$(ExternalIncludePath)</ExternalIncludePath>
+    <CopyLocalDeploymentContent>true</CopyLocalDeploymentContent>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -249,6 +253,7 @@
     <ClInclude Include="src\game.hpp" />
     <ClInclude Include="src\game_of_life.h" />
     <ClInclude Include="src\gl.hpp" />
+    <ClInclude Include="src\gol.frag.glsl.v1.h" />
     <ClInclude Include="src\Resource.h" />
     <ClInclude Include="src\targetver.h" />
   </ItemGroup>
@@ -266,7 +271,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
-    <None Include="gol.frag.glsl" />
+    <None Include="gol.frag.glsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

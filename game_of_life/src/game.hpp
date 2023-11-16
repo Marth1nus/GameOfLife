@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gl.hpp"
+#include "gol.frag.glsl.v1.h"
 
 #include <fstream>
 #include <iostream>
@@ -47,7 +48,7 @@ public: /* Function View */
 
 	void locate_uniforms();
 	void set_uniforms(bool display_only);
-	void load_shader(std::string_view code);
+	void load_shader(std::string_view code = gol_fragment_shader_v1);
 
 	void update();
 	void draw();

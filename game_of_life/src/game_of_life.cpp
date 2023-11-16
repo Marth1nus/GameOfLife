@@ -94,15 +94,22 @@ static auto create_console() -> HWND {
     return GetConsoleWindow();
 }
 static auto build_shader() -> void {
-    std::string const code = [] {
-        std::ifstream file(shader_path);
+    std::string
+        path = shader_path.string(),
+        code = [&] {
+        std::ifstream file(path);
         std::ostringstream lines;
         lines << file.rdbuf();
         return lines.str();
     }();
-    game.load_shader(code);
+    if (code.contains("#version")) {
+        game.load_shader(code);
+    }
+    else {
+        game.load_shader();
+        path = "Default";
+    }
 
-    std::string const path = shader_path.string();
     printf("Build Shader '%s'\n", path.c_str());
 }
 static auto build_game(HWND hwnd) -> void {
