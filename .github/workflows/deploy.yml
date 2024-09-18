@@ -23,7 +23,7 @@ jobs:
         emcmake cmake ..
         emmake make
         mkdir ../output-html
-        mv *.html *.css *.js *.wasm *.mem ../output-html
+        mv *.html *.js *.wasm ../output-html
         popd
 
     - name: Deploy to GitHub Pages
