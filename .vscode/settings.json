@@ -1,5 +1,7 @@
 {
   "cSpell.words": [
+    "EMSCRIPTEN",
+    "fbos",
     "FRAMEBUFFER",
     "GLES",
     "glfw",
@@ -8,7 +10,8 @@
     "Parameteri",
     "Programiv",
     "Renderbuffers",
-    "Shaderiv"
+    "Shaderiv",
+    "WEBGL"
   ],
   "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
   "files.associations": {
@@ -78,6 +81,7 @@
     "xtr1common": "cpp",
     "xutility": "cpp",
     "ranges": "cpp",
-    "span": "cpp"
+    "span": "cpp",
+    "numbers": "cpp"
   }
 }
