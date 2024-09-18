@@ -11,39 +11,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    - name: Set up Emscripten
-      uses: mymindstorm/setup-emsdk@v14
-    - name: Build emscripten + cmake + make
-      run: |
-        mkdir build
-        pushd build
-        emcmake cmake ..
-        emmake make
-        mkdir ../out
-        mv *.html *.js *.wasm ../out
-        popd
-    - name: Confirm output
-      run: ls ./out
-    - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        name: Web-Page
-        path: ./out
-      
-  deploy:
-    needs: build
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: I exist
-        run: echo "Hello I exist"
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+      - name: Build emscripten + cmake + make
+        run: |
+          mkdir build
+          pushd build
+          emcmake cmake ..
+          emmake make
+          mkdir ../out
+          mv *.html *.js *.wasm ../out
+          popd
+      - name: Confirm output
+        run: ls ./out
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./out
+          publish_branch: gh-pages
+          user_name: github-actions
+          user_email: github-actions@github.com
