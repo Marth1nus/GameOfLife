@@ -42,6 +42,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
+      - name: I exist
+        run: echo "Hello I exist"
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v3
