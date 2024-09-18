@@ -30,6 +30,7 @@ jobs:
         emmake make
         mkdir ../out
         mv *.html *.js *.wasm ../out
+        ls ../out
         popd
   deploy:
     runs-on: ubuntu-latest
