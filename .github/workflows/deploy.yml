@@ -11,12 +11,12 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Set up Emscripten
       uses: mymindstorm/setup-emsdk@v14
 
-    - name: Run build script
+    - name: Build emscripten + cmake + make
       run: |
         mkdir build
         pushd build
