@@ -32,10 +32,6 @@ jobs:
         mv *.html *.js *.wasm ../out
         ls ../out
         popd
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
     - name: Deploy
       uses: peaceiris/actions-gh-pages@v4
       with:
