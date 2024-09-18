@@ -14,7 +14,8 @@
 #include <GLES3/gl3.h>
 #include <GLFW/glfw3.h>
 #else
-#include <glad/gles2.h>
+#define GLAD_GLES2_IMPLEMENTATION
+#include "glad/gles2.h"
 #include <GLFW/glfw3.h>
 #endif
 

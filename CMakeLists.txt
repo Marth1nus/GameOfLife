@@ -19,11 +19,8 @@ else()
   set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
   FetchContent_MakeAvailable(glfw)
 
-  add_library(glad glad/src/gles2.c)
-  target_include_directories(glad PUBLIC glad/include/)
-
   add_executable(${PROJECT_NAME} main.cpp)
-  target_link_libraries(${PROJECT_NAME} PRIVATE glad glfw)
+  target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
   target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
 
 endif()
